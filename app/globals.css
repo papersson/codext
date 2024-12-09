@@ -3,31 +3,126 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --foreground-rgb: 67, 63, 56;
+  --background-start-rgb: 250, 249, 246;
+  --background-end-rgb: 250, 249, 246;
+
+  /* New earthy light mode theme */
+  --foreground: 30 12% 24%;
+  --background: 40 33% 98%;
+  --card: 0 0% 100%;
+  --card-foreground: 30 12% 24%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 30 12% 24%;
+  --primary: 27 35% 45%;
+  --primary-foreground: 40 33% 98%;
+  --secondary: 30 9% 94%;
+  --secondary-foreground: 30 12% 24%;
+  --muted: 30 9% 94%;
+  --muted-foreground: 30 10% 40%;
+  --accent: 27 15% 84%;
+  --accent-foreground: 30 12% 24%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 30 10% 88%;
+  --input: 30 10% 88%;
+  --ring: 27 35% 45%;
+  
+  /* Subtle earthy chart colors */
+  --chart-1: 27 35% 45%;
+  --chart-2: 43 20% 50%;
+  --chart-3: 15 25% 40%;
+  --chart-4: 35 25% 55%;
+  --chart-5: 20 20% 45%;
+  
+  --radius: 0.5rem;
+
+  /* Sidebar with subtle earthy tones */
+  --sidebar-background: 40 33% 98%;
+  --sidebar-foreground: 30 12% 24%;
+  --sidebar-primary: 27 35% 45%;
+  --sidebar-primary-foreground: 40 33% 98%;
+  --sidebar-accent: 30 9% 94%;
+  --sidebar-accent-foreground: 30 12% 24%;
+  --sidebar-border: 30 10% 88%;
+  --sidebar-ring: 27 35% 45%;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    --background-start-rgb: 25, 25, 28;
+    --background-end-rgb: 25, 25, 28;
   }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+/* Dark theme overrides */
+.dark {
+  --background: 30 15% 12%;
+  --foreground: 40 8% 85%;
+  --card: 30 15% 14%;
+  --card-foreground: 40 8% 85%;
+  --popover: 30 15% 14%;
+  --popover-foreground: 40 8% 85%;
+  --primary: 27 25% 65%;
+  --primary-foreground: 30 15% 12%;
+  --secondary: 30 10% 18%;
+  --secondary-foreground: 40 8% 85%;
+  --muted: 30 10% 18%;
+  --muted-foreground: 40 8% 60%;
+  --accent: 30 10% 18%;
+  --accent-foreground: 40 8% 85%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 30 10% 20%;
+  --input: 30 10% 20%;
+  --ring: 27 25% 65%;
+  
+  /* Muted earthy chart colors for dark mode */
+  --chart-1: 27 25% 65%;
+  --chart-2: 43 15% 60%;
+  --chart-3: 15 20% 55%;
+  --chart-4: 35 20% 65%;
+  --chart-5: 20 15% 60%;
+
+  --sidebar-background: 30 15% 14%;
+  --sidebar-foreground: 40 8% 85%;
+  --sidebar-primary: 27 25% 65%;
+  --sidebar-primary-foreground: 30 15% 12%;
+  --sidebar-accent: 30 10% 18%;
+  --sidebar-accent-foreground: 40 8% 85%;
+  --sidebar-border: 30 10% 20%;
+  --sidebar-ring: 27 25% 65%;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background: linear-gradient(to bottom, hsl(var(--background)) 0%, hsl(var(--background)) 100%);
+    font-family: sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Remove default scrollbars if you want a cleaner look */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 4px;
   }
 }

@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Code Context Generator
+
+A Next.js 14 application that generates a structured prompt representing your codebase. It displays your directory tree, lets you select files, and then produces a prompt containing the entire directory structure plus the selected files' contents. This is useful for providing code context to large language models or for general codebase documentation.
+
+## Features
+
+* **Directory Navigation**: Expand/collapse directories and view files using the App Router
+* **File Selection**: Check boxes to include specific files in the final prompt
+* **Configurable Ignored Directories**: Enter directories to omit from the prompt output
+* **Full Prompt Generation**: Outputs a directory structure block and code file blocks for all selected files
+* **Copy to Clipboard**: Easily copy the generated prompt
+
+## Tech Stack
+
+* Next.js 14 (App Router)
+* TypeScript
+* Tailwind CSS + Shadcn components
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000 and select the files you need.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Example Use Cases
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+* Supplying a large language model with a snapshot of your codebase context
+* Quickly documenting a project's structure and selected code snippets
+* Providing code context for reviews or onboarding
 
-## Learn More
+## Contributing
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+Issues and pull requests are welcome.
