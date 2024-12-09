@@ -5,6 +5,10 @@ import { Toaster } from "@/components/ui/toaster"
 export const metadata: Metadata = {
   title: 'Code Base Context Generator',
   description: 'Generate a code base context prompt',
+  icons: {
+    icon: '/codext.svg',
+    shortcut: '/codext.svg',
+  }
 }
 
 export default function RootLayout({

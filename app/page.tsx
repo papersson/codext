@@ -1,12 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ChevronRight, ChevronDown, Wand2, Copy } from 'lucide-react';
-import path from 'path';
-import { useToast } from "@/hooks/use-toast";
+import {
+  ChevronRight,
+  ChevronDown,
+  Wand2,
+  Copy,
+  Folder as FolderIcon
+} from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 type FileNode = {
   name: string;
@@ -14,236 +19,398 @@ type FileNode = {
   type: 'file' | 'directory';
 };
 
-type DirData = {
+interface DirectoryData {
   entries: FileNode[];
   hasMore: boolean;
-};
+}
 
 export default function Page() {
   const { toast } = useToast();
-  const [directories, setDirectories] = useState<Record<string, DirData>>({});
-  const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
+
+  // Handles to directories and their states
+  const [rootDirectoryHandle, setRootDirectoryHandle] = useState<FileSystemDirectoryHandle | null>(null);
+  const [directoryHandles, setDirectoryHandles] = useState<Map<string, FileSystemDirectoryHandle>>(new Map());
+
+  // Directory and file states
+  const [directoryData, setDirectoryData] = useState<Record<string, DirectoryData>>({});
+  const [expandedDirectories, setExpandedDirectories] = useState<Set<string>>(new Set());
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
-  const [prompt, setPrompt] = useState<string>('');
-  const [ignoreInput, setIgnoreInput] = useState<string>('node_modules');
 
-  const rootPath = '.';
+  // Prompt-related states
+  const [ignoreDirsInput, setIgnoreDirsInput] = useState<string>('node_modules');
+  const [promptOutput, setPromptOutput] = useState<string>('');
 
-  useEffect(() => {
-    loadDirectory(rootPath);
-  }, []);
+  /**
+   * Clears existing state, preparing for a new directory selection.
+   */
+  function resetState() {
+    setDirectoryData({});
+    setExpandedDirectories(new Set());
+    setSelectedFiles(new Set());
+    setPromptOutput('');
+  }
 
-  const loadDirectory = async (dirPath: string, offset = 0) => {
-    const limit = 50;
-    const params = new URLSearchParams({ path: dirPath, limit: limit.toString(), offset: offset.toString() });
-    const res = await fetch('/api/files?' + params.toString());
-    const data = await res.json() as { entries: FileNode[], hasMore: boolean };
+  /**
+   * Reads the contents of a given directory handle, returning a list of file/directory nodes.
+   * Also extracts subdirectory handles to build a mapping of directories.
+   */
+  async function readDirectoryEntries(
+    dirHandle: FileSystemDirectoryHandle,
+    dirPath: string
+  ): Promise<{
+    entries: FileNode[];
+    subDirs: { path: string; handle: FileSystemDirectoryHandle }[];
+  }> {
+    const entries: FileNode[] = [];
+    const subDirs: { path: string; handle: FileSystemDirectoryHandle }[] = [];
 
-    setDirectories(prev => {
-      const existing = prev[dirPath] || { entries: [], hasMore: false };
-      const newEntries = offset === 0 ? data.entries : [...existing.entries, ...data.entries];
-      return {
-        ...prev,
-        [dirPath]: { entries: newEntries, hasMore: data.hasMore }
-      };
-    });
-  };
+    for await (const entryHandle of dirHandle.values()) {
+      const name = entryHandle.name;
+      const nodePath = dirPath === '.' ? name : `${dirPath}/${name}`;
 
-  const toggleFileSelection = useCallback((filePath: string) => {
-    setSelectedFiles(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(filePath)) {
-        newSet.delete(filePath);
+      if (entryHandle.kind === 'directory') {
+        entries.push({ name, path: nodePath, type: 'directory' });
+        subDirs.push({ path: nodePath, handle: entryHandle });
       } else {
-        newSet.add(filePath);
+        entries.push({ name, path: nodePath, type: 'file' });
       }
-      return newSet;
-    });
-  }, []);
-
-  const toggleDirectory = (dirPath: string) => {
-    setExpandedDirs(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(dirPath)) {
-        newSet.delete(dirPath);
-      } else {
-        if (!directories[dirPath]) {
-          loadDirectory(dirPath);
-        }
-        newSet.add(dirPath);
-      }
-      return newSet;
-    });
-  };
-
-  const loadMore = (dirPath: string) => {
-    const dirData = directories[dirPath];
-    if (!dirData) return;
-    loadDirectory(dirPath, dirData.entries.length);
-  };
-
-  const generatePrompt = async () => {
-    // Fetch selected files' content
-    const params = new URLSearchParams();
-    Array.from(selectedFiles).forEach(f => {
-      params.append('selected', f);
-    });
-    const fileRes = await fetch('/api/files?' + params.toString());
-    const fileData = await fileRes.json();
-    const { selectedFilesData } = fileData;
-
-    // Prepare ignored dirs for full tree request
-    const ignoredDirs = ignoreInput
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean);
-
-    const treeParams = new URLSearchParams({ fullTree: 'true' });
-    for (const ig of ignoredDirs) {
-      treeParams.append('ignore', ig);
     }
 
-    // Fetch full directory structure excluding ignored directories
-    const treeRes = await fetch('/api/files?' + treeParams.toString());
-    const treeData = await treeRes.json();
-    const treeText = treeData.directoryStructure || '';
+    // Sort entries alphabetically
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+    return { entries, subDirs };
+  }
 
-    const cwd = process.cwd();
-    let filesText = '';
-    for (const file of (selectedFilesData || [])) {
-      const relativePath = path.relative(cwd, file.path);
-      filesText += `\n\nFile: ${relativePath}\n\`\`\`\n${file.content}\n\`\`\``;
-    }
-
-    const finalPrompt = `<directory_structure>\n${treeText}</directory_structure>\n\n<code_files>\n${filesText}\n</code_files>`;
-    setPrompt(finalPrompt);
-  };
-
-  const copyToClipboard = useCallback(async (text: string) => {
+  /**
+   * Opens a directory picker in the browser, letting the user select a folder.
+   * Initializes the state with the selected directory and its top-level entries.
+   */
+  async function pickDirectory() {
     try {
-      await navigator.clipboard.writeText(text);
-      toast({
-        title: "Copied!",
-        description: "Prompt copied to clipboard",
-        duration: 2000,
-      });
-    } catch (err) {
-      toast({
-        title: "Error",
-        description: "Failed to copy to clipboard",
-        variant: "destructive",
-        duration: 2000,
-      });
-    }
-  }, [toast]);
+      const handle: FileSystemDirectoryHandle = await (window as any).showDirectoryPicker();
+      if (!handle) return;
 
-  const renderDirectory = (dirPath: string) => {
-    const dirData = directories[dirPath];
-    if (!dirData) return null;
+      // Reset state for a new selection
+      resetState();
+
+      const { entries, subDirs } = await readDirectoryEntries(handle, '.');
+
+      // Build a map of directory handles starting with the root
+      const handlesMap = new Map<string, FileSystemDirectoryHandle>();
+      handlesMap.set('.', handle);
+      subDirs.forEach((sub) => handlesMap.set(sub.path, sub.handle));
+
+      setRootDirectoryHandle(handle);
+      setDirectoryHandles(handlesMap);
+      setDirectoryData({ '.': { entries, hasMore: false } });
+    } catch (e) {
+      console.error('Error in pickDirectory:', e);
+    }
+  }
+
+  /**
+   * Loads and sets the directory data for a given path from the directoryHandles map.
+   * Ensures that if we open a directory not previously expanded, we populate it.
+   */
+  async function loadDirectory(dirPath: string) {
+    const dirHandle = directoryHandles.get(dirPath);
+    if (!dirHandle) {
+      console.error('No directory handle found for:', dirPath);
+      return;
+    }
+
+    try {
+      const { entries, subDirs } = await readDirectoryEntries(dirHandle, dirPath);
+
+      // Store the entries for this directory
+      setDirectoryData((prev) => ({
+        ...prev,
+        [dirPath]: { entries, hasMore: false }
+      }));
+
+      // Add any new subdirectory handles to our map
+      if (subDirs.length > 0) {
+        setDirectoryHandles((prevMap) => {
+          const updatedMap = new Map(prevMap);
+          subDirs.forEach((sub) => updatedMap.set(sub.path, sub.handle));
+          return updatedMap;
+        });
+      }
+    } catch (e) {
+      console.error('Error in loadDirectory:', e);
+    }
+  }
+
+  /**
+   * Toggles a directory open or closed in the UI.
+   * If opening for the first time, it loads the directory data.
+   */
+  async function toggleDirectory(dirPath: string) {
+    const isCurrentlyOpen = expandedDirectories.has(dirPath);
+
+    if (isCurrentlyOpen) {
+      // Close the directory
+      setExpandedDirectories((prev) => {
+        const updated = new Set(prev);
+        updated.delete(dirPath);
+        return updated;
+      });
+    } else {
+      // Open the directory
+      if (!directoryData[dirPath]) {
+        await loadDirectory(dirPath);
+      }
+      setExpandedDirectories((prev) => new Set(prev).add(dirPath));
+    }
+  }
+
+  /**
+   * Selects or deselects a file for inclusion in the prompt.
+   */
+  const toggleFileSelection = useCallback((filePath: string) => {
+    setSelectedFiles((prev) => {
+      const updated = new Set(prev);
+      if (updated.has(filePath)) {
+        updated.delete(filePath);
+      } else {
+        updated.add(filePath);
+      }
+      return updated;
+    });
+  }, []);
+
+  /**
+   * Recursively renders a directory as a nested list, including subdirectories and files.
+   */
+  function renderDirectory(dirPath: string): JSX.Element | null {
+    const dir = directoryData[dirPath];
+    if (!dir) return null;
 
     return (
       <ul className="space-y-1">
-        {dirData.entries.map(node => {
+        {dir.entries.map((node) => {
+          // Render directories
           if (node.type === 'directory') {
-            const isOpen = expandedDirs.has(node.path);
+            const isOpen = expandedDirectories.has(node.path);
             return (
               <li key={node.path} className="text-sm">
                 <div
                   className="flex items-center space-x-1 cursor-pointer rounded px-1 py-0.5 hover:bg-secondary transition-colors"
                   onClick={() => toggleDirectory(node.path)}
                 >
-                  {isOpen ? <ChevronDown className="h-4 w-4 text-foreground" /> : <ChevronRight className="h-4 w-4 text-foreground" />}
+                  {isOpen ? (
+                    <ChevronDown className="h-4 w-4 text-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-foreground" />
+                  )}
+                  <FolderIcon className="h-4 w-4 text-foreground" />
                   <span className="font-medium text-foreground">{node.name}</span>
                 </div>
-                {isOpen && (
-                  <div className="pl-5">
-                    {renderDirectory(node.path)}
-                    {directories[node.path]?.hasMore && (
-                      <Button variant="ghost" size="sm" className="text-xs text-foreground/70 hover:bg-secondary mt-1"
-                        onClick={(e) => { e.stopPropagation(); loadMore(node.path); }}>
-                        Load more
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </li>
-            );
-          } else {
-            return (
-              <li key={node.path} className="flex items-center space-x-2 text-sm rounded px-1 py-0.5 hover:bg-secondary transition-colors">
-                <Checkbox
-                  checked={selectedFiles.has(node.path)}
-                  onCheckedChange={() => toggleFileSelection(node.path)}
-                />
-                <span className="text-foreground/90">{node.name}</span>
+                {isOpen && <div className="pl-5">{renderDirectory(node.path)}</div>}
               </li>
             );
           }
+
+          // Render files
+          return (
+            <li
+              key={node.path}
+              className="flex items-center space-x-2 text-sm rounded px-1 py-0.5 hover:bg-secondary transition-colors"
+            >
+              <Checkbox
+                checked={selectedFiles.has(node.path)}
+                onCheckedChange={() => toggleFileSelection(node.path)}
+              />
+              <span className="text-foreground/90">{node.name}</span>
+            </li>
+          );
         })}
-        {dirData.hasMore && !expandedDirs.has(dirPath) && (
-          <Button variant="ghost" size="sm" className="text-xs text-foreground/70 hover:bg-secondary"
-            onClick={() => loadMore(dirPath)}>
-            Load more
-          </Button>
-        )}
       </ul>
     );
-  };
+  }
+
+  /**
+   * Copies provided text to the clipboard and shows a toast on success or error.
+   */
+  const copyToClipboard = useCallback(
+    async (text: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast({
+          title: 'Copied!',
+          description: 'Prompt copied to clipboard',
+          duration: 2000
+        });
+      } catch (err) {
+        toast({
+          title: 'Error',
+          description: 'Failed to copy to clipboard',
+          variant: 'destructive',
+          duration: 2000
+        });
+      }
+    },
+    [toast]
+  );
+
+  /**
+   * Recursively builds the directory tree text, skipping ignored directories.
+   * Indentation levels help visualize directory depth.
+   */
+  async function buildFullTree(
+    dirHandle: FileSystemDirectoryHandle,
+    ignoredDirs: Set<string>,
+    basePath = '.',
+    indent = ''
+  ): Promise<string> {
+    const lines: string[] = [];
+    const allEntries: FileSystemHandle[] = [];
+
+    for await (const entryHandle of dirHandle.values()) {
+      allEntries.push(entryHandle);
+    }
+
+    allEntries.sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const entryHandle of allEntries) {
+      const name = entryHandle.name;
+      if (ignoredDirs.has(name)) continue;
+
+      const nodePath = basePath === '.' ? name : `${basePath}/${name}`;
+      if (entryHandle.kind === 'directory') {
+        lines.push(`${indent}${name}/`);
+        const subtree = await buildFullTree(
+          entryHandle as FileSystemDirectoryHandle,
+          ignoredDirs,
+          nodePath,
+          indent + '  '
+        );
+        if (subtree) lines.push(subtree);
+      } else {
+        lines.push(`${indent}${name}`);
+      }
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Generates the final prompt output, including:
+   * - The entire directory structure (minus ignored directories)
+   * - The contents of any selected files
+   */
+  async function generatePrompt() {
+    if (!rootDirectoryHandle) return;
+
+    const ignoredDirs = new Set(
+      ignoreDirsInput
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    );
+
+    // Build the directory structure
+    const directoryStructure = await buildFullTree(rootDirectoryHandle, ignoredDirs);
+
+    // Fetch and append content of each selected file
+    let filesText = '';
+    for (const filePath of selectedFiles) {
+      const fileDir = filePath.substring(0, filePath.lastIndexOf('/')) || '.';
+      const fileName = filePath.split('/').pop()!;
+      const fileDirHandle = directoryHandles.get(fileDir);
+      if (!fileDirHandle) continue;
+
+      try {
+        const fileHandle = await fileDirHandle.getFileHandle(fileName, { create: false });
+        const file = await fileHandle.getFile();
+        const content = await file.text();
+        filesText += `\n\nFile: ${filePath}\n\`\`\`\n${content}\n\`\`\``;
+      } catch (e) {
+        console.error('Error reading file:', filePath, e);
+      }
+    }
+
+    const finalPrompt = `<directory_structure>\n${directoryStructure}\n</directory_structure>\n\n<code_files>${filesText}\n</code_files>`;
+    setPromptOutput(finalPrompt);
+  }
 
   return (
-    <div className="flex h-full overflow-hidden">
-      <div className="flex flex-col w-1/3 h-full px-4 py-4">
-        <div className="flex flex-col space-y-3 mb-3">
-          <h1 className="text-base font-semibold text-foreground">Code Base Context Generator</h1>
-          <div>
-            <label htmlFor="ignore-input" className="block text-sm font-medium mb-1 text-foreground">
-              Ignore directories (comma-separated):
-            </label>
-            <input
-              id="ignore-input"
-              type="text"
-              value={ignoreInput}
-              onChange={(e) => setIgnoreInput(e.target.value)}
-              className="border border-border rounded px-2 py-1 text-sm w-full"
-              placeholder="e.g. node_modules, .git"
-            />
-          </div>
-          <Button 
-            variant="secondary"
-            size="sm"
-            onClick={generatePrompt} 
-            className="flex items-center gap-2 self-end"
-          >
-            <Wand2 className="h-4 w-4" />
-            Generate
-          </Button>
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
+      {/* Sidebar: Directory Selection and Controls */}
+      <div className="flex flex-col w-1/3 h-full border-r border-border p-4">
+        <h1 className="text-base font-semibold mb-4">Codext</h1>
+
+        {/* Controls for picking directory, ignoring directories, and generating prompt */}
+        <div className="flex flex-col space-y-3 mb-4">
+          {!rootDirectoryHandle && (
+            <Button variant="default" size="sm" onClick={pickDirectory}>
+              Select Workspace Folder
+            </Button>
+          )}
+          {rootDirectoryHandle && (
+            <>
+              <div>
+                <label htmlFor="ignore-input" className="block text-sm font-medium mb-1">
+                  Ignore directories (comma-separated):
+                </label>
+                <input
+                  id="ignore-input"
+                  type="text"
+                  value={ignoreDirsInput}
+                  onChange={(e) => setIgnoreDirsInput(e.target.value)}
+                  className="border border-border rounded px-2 py-1 text-sm w-full"
+                  placeholder="e.g. node_modules, .git"
+                />
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={generatePrompt}
+                className="flex items-center gap-2 self-end"
+              >
+                <Wand2 className="h-4 w-4" />
+                Generate
+              </Button>
+            </>
+          )}
         </div>
-        <ScrollArea className="h-[calc(100vh-8rem)]">
-          {renderDirectory(rootPath)}
+
+        {/* Directory Tree Scroll Area */}
+        <ScrollArea className="h-[calc(100vh-12rem)]">
+          {rootDirectoryHandle && renderDirectory('.')}
         </ScrollArea>
       </div>
 
-      <div className="flex-1 h-full p-4 overflow-auto">
-        {prompt && (
-          <div className="relative bg-muted/50 rounded-lg border border-border shadow-sm">
-            <div className="absolute inset-0 bg-gradient-to-r from-muted/50 to-background/50 opacity-50" />
-            <div className="relative p-6">
-              <div className="absolute top-4 right-4">
+      {/* Main Content: Prompt Output */}
+      <div className="flex-1 h-full p-4">
+        {promptOutput && (
+          <div className="h-full relative bg-muted/50 rounded-lg border border-border shadow-sm">
+            {/* Gradient overlay for styling */}
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-muted/50 to-background/50 opacity-50" />
+
+            <div className="relative h-full flex flex-col p-6">
+              {/* Copy Button */}
+              <div className="flex justify-end mb-2">
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    copyToClipboard(prompt);
-                  }}
-                  className="h-8 w-8 hover:bg-muted"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => copyToClipboard(promptOutput)}
+                  className="flex items-center gap-2 hover:bg-muted"
                   title="Copy to clipboard"
                 >
                   <Copy className="h-4 w-4" />
+                  <span>Copy</span>
                 </Button>
               </div>
-              <pre className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed">
-                {prompt}
-              </pre>
+
+              {/* Prompt Display */}
+              <div className="flex-1 min-h-0">
+                <ScrollArea className="h-full">
+                  <pre className="text-sm text-foreground/90 font-mono leading-relaxed whitespace-pre-wrap break-all">
+                    {promptOutput}
+                  </pre>
+                </ScrollArea>
+              </div>
             </div>
           </div>
         )}
