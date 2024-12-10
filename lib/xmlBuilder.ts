@@ -1,4 +1,5 @@
 import { FileNode } from './fsUtils';
+import { toast } from '@/hooks/use-toast';
 
 /**
  * Escapes XML special characters in text content.
@@ -64,12 +65,18 @@ export async function buildDocumentsXml(
 ): Promise<string> {
   let documentsXml = '';
   let docId = 1;
+  let errorCount = 0;
 
   for (const filePath of selectedFiles) {
     const fileDir = filePath.substring(0, filePath.lastIndexOf('/')) || '.';
     const fileName = filePath.split('/').pop()!;
     const fileDirHandle = directoryHandles.get(fileDir);
-    if (!fileDirHandle) continue;
+    
+    if (!fileDirHandle) {
+      console.error('Directory not found:', fileDir);
+      errorCount++;
+      continue;
+    }
 
     try {
       const fileHandle = await fileDirHandle.getFileHandle(fileName, { create: false });
@@ -83,7 +90,17 @@ export async function buildDocumentsXml(
       docId++;
     } catch (e) {
       console.error('Error reading file:', filePath, e);
+      errorCount++;
     }
+  }
+
+  if (errorCount > 0) {
+    toast({
+      title: 'Warning',
+      description: `Failed to read ${errorCount} file(s). Check console for details.`,
+      variant: 'destructive',
+      duration: 3000
+    });
   }
 
   return documentsXml;

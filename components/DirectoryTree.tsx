@@ -28,9 +28,19 @@ export function DirectoryTree({
   onToggleDirectory,
   onToggleFileSelection,
 }: DirectoryTreeProps) {
-  function renderDirectory(dirPath: string): JSX.Element | null {
+  function renderDirectory(dirPath: string, visitedPaths = new Set<string>()): JSX.Element | null {
+    if (visitedPaths.has(dirPath)) {
+      return (
+        <div className="text-sm text-muted-foreground italic px-2 py-1">
+          Cyclic directory reference detected
+        </div>
+      );
+    }
+
     const dir = directoryData[dirPath];
     if (!dir) return null;
+
+    visitedPaths.add(dirPath);
 
     return (
       <ul className="space-y-1">
@@ -51,7 +61,7 @@ export function DirectoryTree({
                   <FolderIcon className="h-4 w-4 text-foreground" />
                   <span className="font-medium text-foreground">{node.name}</span>
                 </div>
-                {isOpen && <div className="pl-5">{renderDirectory(node.path)}</div>}
+                {isOpen && <div className="pl-5">{renderDirectory(node.path, new Set(visitedPaths))}</div>}
               </li>
             );
           }

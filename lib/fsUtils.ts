@@ -9,6 +9,11 @@ export interface DirectoryData {
   hasMore: boolean;
 }
 
+export interface FileResult {
+  file: FileSystemFileHandle | null;
+  error?: string;
+}
+
 /**
  * Reads and returns the text content of a file.
  */
@@ -23,7 +28,7 @@ export async function readFileContent(fileHandle: FileSystemFileHandle): Promise
 export async function getFileFromPath(
   rootHandle: FileSystemDirectoryHandle,
   filePath: string
-): Promise<FileSystemFileHandle | null> {
+): Promise<FileResult> {
   const parts = filePath.split('/');
   const fileName = parts.pop()!;
   let currentHandle: FileSystemDirectoryHandle = rootHandle;
@@ -34,16 +39,21 @@ export async function getFileFromPath(
     try {
       currentHandle = await currentHandle.getDirectoryHandle(part);
     } catch (e) {
-      console.error('Error getting directory handle:', e);
-      return null;
+      return {
+        file: null,
+        error: `Directory not found: ${part}`
+      };
     }
   }
 
   try {
-    return await currentHandle.getFileHandle(fileName);
+    const fileHandle = await currentHandle.getFileHandle(fileName);
+    return { file: fileHandle };
   } catch (e) {
-    console.error('Error getting file handle:', e);
-    return null;
+    return {
+      file: null,
+      error: `File not found: ${fileName}`
+    };
   }
 }
 

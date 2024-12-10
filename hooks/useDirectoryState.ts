@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { toast } from '@/hooks/use-toast';
 
 type FileNode = {
   name: string;
@@ -50,8 +51,17 @@ export function useDirectoryState() {
   }, []);
 
   const pickDirectory = useCallback(async () => {
+    if (!('showDirectoryPicker' in window)) {
+      toast({
+        title: "Browser Not Supported",
+        description: "Your browser doesn't support directory selection. Please use Chrome, Edge, or Safari.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
-      const handle: FileSystemDirectoryHandle = await (window as any).showDirectoryPicker();
+      const handle = await window.showDirectoryPicker();
       if (!handle) return;
 
       resetState();
@@ -66,6 +76,11 @@ export function useDirectoryState() {
       setDirectoryData({ '.': { entries, hasMore: false } });
     } catch (e) {
       console.error('Error in pickDirectory:', e);
+      toast({
+        title: "Error",
+        description: e instanceof Error ? e.message : "Failed to access directory",
+        variant: "destructive"
+      });
     }
   }, [resetState, readDirectoryEntries]);
 

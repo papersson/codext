@@ -28,6 +28,37 @@ export default function Page() {
   } = useDirectoryState();
 
   const copyToClipboard = async (text: string) => {
+    if (!navigator.clipboard) {
+      // Fallback using textarea
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      try {
+        document.execCommand('copy');
+        textArea.remove();
+        toast({
+          title: 'Copied!',
+          description: 'Prompt copied to clipboard',
+          duration: 2000
+        });
+      } catch (err) {
+        textArea.remove();
+        toast({
+          title: 'Error',
+          description: 'Failed to copy to clipboard. Please try selecting and copying manually.',
+          variant: 'destructive',
+          duration: 2000
+        });
+      }
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(text);
       toast({
@@ -38,7 +69,7 @@ export default function Page() {
     } catch (err) {
       toast({
         title: 'Error',
-        description: 'Failed to copy to clipboard',
+        description: 'Failed to copy to clipboard. Please try selecting and copying manually.',
         variant: 'destructive',
         duration: 2000
       });
