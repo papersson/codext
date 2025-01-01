@@ -107,18 +107,19 @@ export async function buildDocumentsXml(
 }
 
 /**
- * Generates the complete XML output.
+ * Generates the complete XML output, returning both the XML string and a token estimate.
+ * (We no longer embed <token_estimate> in the XML itself.)
  */
 export async function generateXmlOutput(
   rootDirectoryHandle: FileSystemDirectoryHandle,
   selectedFiles: Set<string>,
   directoryHandles: Map<string, FileSystemDirectoryHandle>,
   ignoredDirs: Set<string>
-): Promise<string> {
+): Promise<{ xml: string; tokenEstimate: number }> {
   const directoryXml = await buildDirectoryXml(rootDirectoryHandle, ignoredDirs, '.');
   const documentsXml = await buildDocumentsXml(selectedFiles, directoryHandles);
 
-  return (
+  const result =
     `<codebase_context>\n` +
     `<directory_structure>\n` +
     directoryXml +
@@ -126,6 +127,11 @@ export async function generateXmlOutput(
     `<documents>\n` +
     documentsXml +
     `</documents>\n` +
-    `</codebase_context>`
-  );
-} 
+    `</codebase_context>`;
+
+  // Rough token estimate: 1 token ~ 4 characters
+  const totalCharacters = result.length;
+  const tokenEstimate = Math.ceil(totalCharacters / 4);
+
+  return { xml: result, tokenEstimate };
+}

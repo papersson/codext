@@ -12,9 +12,17 @@ import { generateXmlOutput } from '@/lib/xmlBuilder';
 
 export default function Page() {
   const { toast } = useToast();
+  
+  // Keep track of what directories to ignore
   const [ignoreDirsInput, setIgnoreDirsInput] = useState<string>('node_modules');
+
+  // Store the generated XML
   const [promptOutput, setPromptOutput] = useState<string>('');
 
+  // Also store the token estimate separately
+  const [tokenEstimate, setTokenEstimate] = useState<number>(0);
+
+  // State/logic for directory management
   const {
     rootDirectoryHandle,
     directoryHandles,
@@ -27,9 +35,9 @@ export default function Page() {
     refreshDirectory,
   } = useDirectoryState();
 
+  // Utility to copy text to clipboard (fallback for older browsers)
   const copyToClipboard = async (text: string) => {
     if (!navigator.clipboard) {
-      // Fallback using textarea
       const textArea = document.createElement('textarea');
       textArea.value = text;
       textArea.style.position = 'fixed';
@@ -76,6 +84,7 @@ export default function Page() {
     }
   };
 
+  // Trigger the generation of XML and token estimate
   const handleGenerate = async () => {
     if (!rootDirectoryHandle) return;
 
@@ -86,13 +95,17 @@ export default function Page() {
         .filter(Boolean)
     );
 
-    const output = await generateXmlOutput(
+    // Destructure the returned { xml, tokenEstimate }
+    const { xml, tokenEstimate } = await generateXmlOutput(
       rootDirectoryHandle,
       selectedFiles,
       directoryHandles,
       ignoredDirs
     );
-    setPromptOutput(output);
+
+    // Store the XML in promptOutput, token estimate in state
+    setPromptOutput(xml);
+    setTokenEstimate(tokenEstimate);
   };
 
   return (
@@ -122,31 +135,38 @@ export default function Page() {
       {/* Right panel: Output */}
       <div className="flex-1 h-full p-4">
         {promptOutput && (
-          <div className="h-full relative bg-muted/50 rounded-lg border border-border shadow-sm">
-            <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-muted/50 to-background/50 opacity-50" />
-            <div className="relative h-full flex flex-col p-6">
-              <div className="flex justify-end mb-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => copyToClipboard(promptOutput)}
-                  className="flex items-center gap-2 hover:bg-muted"
-                  title="Copy to clipboard"
-                >
-                  <Copy className="h-4 w-4" />
-                  <span>Copy</span>
-                </Button>
-              </div>
+          <>
+            {/* Display token estimate, but keep it out of the copyable text */}
+            <div className="mb-2 text-sm text-foreground">
+              Estimated tokens: {tokenEstimate}
+            </div>
 
-              <div className="flex-1 min-h-0">
-                <ScrollArea className="h-full">
-                  <pre className="text-sm text-foreground/90 font-mono leading-relaxed whitespace-pre-wrap break-all">
-                    {promptOutput}
-                  </pre>
-                </ScrollArea>
+            <div className="h-full relative bg-muted/50 rounded-lg border border-border shadow-sm">
+              <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-muted/50 to-background/50 opacity-50" />
+              <div className="relative h-full flex flex-col p-6">
+                <div className="flex justify-end mb-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => copyToClipboard(promptOutput)}
+                    className="flex items-center gap-2 hover:bg-muted"
+                    title="Copy to clipboard"
+                  >
+                    <Copy className="h-4 w-4" />
+                    <span>Copy</span>
+                  </Button>
+                </div>
+
+                <div className="flex-1 min-h-0">
+                  <ScrollArea className="h-full">
+                    <pre className="text-sm text-foreground/90 font-mono leading-relaxed whitespace-pre-wrap break-all">
+                      {promptOutput}
+                    </pre>
+                  </ScrollArea>
+                </div>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>
