@@ -22,6 +22,13 @@ export default function Page() {
   // Also store the token estimate separately
   const [tokenEstimate, setTokenEstimate] = useState<number>(0);
 
+  // Get token recommendation based on count
+  const getTokenRecommendation = (tokenCount: number): string => {
+    if (tokenCount < 5000) return "Low";
+    if (tokenCount < 15000) return "Medium";
+    return "High";
+  };
+
   // State/logic for directory management
   const {
     rootDirectoryHandle,
@@ -138,7 +145,10 @@ export default function Page() {
           <>
             {/* Display token estimate, but keep it out of the copyable text */}
             <div className="mb-2 text-sm text-foreground">
-              Estimated tokens: {tokenEstimate}
+              Estimated tokens: {tokenEstimate}{' '}
+              <span className={`ml-2 ${tokenEstimate >= 15000 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                ({getTokenRecommendation(tokenEstimate)})
+              </span>
             </div>
 
             <div className="h-full relative bg-muted/50 rounded-lg border border-border shadow-sm">
