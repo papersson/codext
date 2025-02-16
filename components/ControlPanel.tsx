@@ -37,7 +37,7 @@ export function ControlPanel({
               value={ignoreDirsInput}
               onChange={(e) => onIgnoreDirsChange(e.target.value)}
               className="border border-border rounded px-2 py-1 text-sm w-full"
-              placeholder="e.g. node_modules, .git"
+              placeholder="e.g. node_modules, .*, _*, .git, dist, build"
             />
           </div>
           <div className="flex space-x-2 justify-end">

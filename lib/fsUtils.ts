@@ -58,10 +58,31 @@ export async function getFileFromPath(
 }
 
 /**
+ * Converts a glob-like pattern to a regular expression.
+ * Supports * as a wildcard.
+ */
+function patternToRegex(pattern: string): RegExp {
+  const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = escaped.replace(/\\\*/g, '.*');
+  return new RegExp(`^${regex}$`);
+}
+
+/**
  * Checks if a directory should be ignored based on its name.
+ * Supports glob-like patterns with * as wildcard.
  */
 export function shouldIgnoreDirectory(dirName: string, ignoredDirs: Set<string>): boolean {
-  return ignoredDirs.has(dirName);
+  for (const pattern of ignoredDirs) {
+    if (pattern.includes('*')) {
+      const regex = patternToRegex(pattern);
+      if (regex.test(dirName)) {
+        return true;
+      }
+    } else if (pattern === dirName) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**

@@ -1,5 +1,6 @@
 import { FileNode } from './fsUtils';
 import { toast } from '@/hooks/use-toast';
+import { shouldIgnoreDirectory } from './fsUtils';
 
 /**
  * Escapes XML special characters in text content.
@@ -39,7 +40,7 @@ export async function buildDirectoryXml(
   let content = `${indent}<directory name="${escapeXmlAttribute(dirName)}">\n`;
   for (const entryHandle of allEntries) {
     const name = entryHandle.name;
-    if (ignoredDirs.has(name)) continue;
+    if (shouldIgnoreDirectory(name, ignoredDirs)) continue;
     if (entryHandle.kind === 'directory') {
       const subtree = await buildDirectoryXml(
         entryHandle as FileSystemDirectoryHandle,

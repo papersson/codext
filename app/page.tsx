@@ -14,7 +14,7 @@ export default function Page() {
   const { toast } = useToast();
   
   // Keep track of what directories to ignore
-  const [ignoreDirsInput, setIgnoreDirsInput] = useState<string>('node_modules');
+  const [ignoreDirsInput, setIgnoreDirsInput] = useState<string>('node_modules, .*, _*, dist, build');
 
   // Store the generated XML
   const [promptOutput, setPromptOutput] = useState<string>('');
