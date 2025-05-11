@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
+import { sortEntries } from '@/lib/fsUtils';
 
 type FileNode = {
   name: string;
@@ -46,8 +47,8 @@ export function useDirectoryState() {
       }
     }
 
-    entries.sort((a, b) => a.name.localeCompare(b.name));
-    return { entries, subDirs };
+    // Use sortEntries from fsUtils to ensure directories come first
+    return { entries: sortEntries(entries), subDirs };
   }, []);
 
   const pickDirectory = useCallback(async () => {
@@ -166,4 +167,4 @@ export function useDirectoryState() {
     toggleFileSelection,
     refreshDirectory,
   };
-} 
+}

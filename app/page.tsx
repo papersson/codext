@@ -8,7 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { DirectoryTree } from '@/components/DirectoryTree';
 import { ControlPanel } from '@/components/ControlPanel';
 import { useDirectoryState } from '@/hooks/useDirectoryState';
-import { generateXmlOutput } from '@/lib/xmlBuilder';
+import { generateOutput } from '@/lib/xmlBuilder';
 
 export default function Page() {
   const { toast } = useToast();
@@ -16,11 +16,14 @@ export default function Page() {
   // Keep track of what directories to ignore
   const [ignoreDirsInput, setIgnoreDirsInput] = useState<string>('node_modules, .*, _*, dist, build');
 
-  // Store the generated XML
+  // Store the generated output (XML or plain text)
   const [promptOutput, setPromptOutput] = useState<string>('');
 
   // Also store the token estimate separately
   const [tokenEstimate, setTokenEstimate] = useState<number>(0);
+  
+  // Toggle for XML format
+  const [useXmlFormat, setUseXmlFormat] = useState<boolean>(true);
 
   // Get token recommendation based on count
   const getTokenRecommendation = (tokenCount: number): string => {
@@ -41,6 +44,35 @@ export default function Page() {
     toggleFileSelection,
     refreshDirectory,
   } = useDirectoryState();
+
+  // Function to handle selecting/deselecting all files in a directory
+  const handleToggleDirectorySelection = (dirPath: string, selected: boolean) => {
+    // Auto-expand folder when checked
+    if (selected && !expandedDirectories.has(dirPath)) {
+      toggleDirectory(dirPath);
+    }
+    
+    // Get only the direct file children (not subdirectories)
+    const getDirectFileChildren = (path: string): string[] => {
+      const dirData = directoryData[path];
+      if (!dirData) return [];
+
+      return dirData.entries
+        .filter(entry => entry.type === 'file')
+        .map(entry => entry.path);
+    };
+
+    const directFilePaths = getDirectFileChildren(dirPath);
+    
+    // Toggle selection for direct file children only
+    for (const filePath of directFilePaths) {
+      if (selected && !selectedFiles.has(filePath)) {
+        toggleFileSelection(filePath);
+      } else if (!selected && selectedFiles.has(filePath)) {
+        toggleFileSelection(filePath);
+      }
+    }
+  };
 
   // Utility to copy text to clipboard (fallback for older browsers)
   const copyToClipboard = async (text: string) => {
@@ -91,7 +123,7 @@ export default function Page() {
     }
   };
 
-  // Trigger the generation of XML and token estimate
+  // Trigger the generation of output and token estimate
   const handleGenerate = async () => {
     if (!rootDirectoryHandle) return;
 
@@ -102,28 +134,31 @@ export default function Page() {
         .filter(Boolean)
     );
 
-    // Destructure the returned { xml, tokenEstimate }
-    const { xml, tokenEstimate } = await generateXmlOutput(
+    // Use the new generateOutput function with useXmlFormat parameter
+    const { output, tokenEstimate } = await generateOutput(
       rootDirectoryHandle,
       selectedFiles,
       directoryHandles,
-      ignoredDirs
+      ignoredDirs,
+      useXmlFormat
     );
 
-    // Store the XML in promptOutput, token estimate in state
-    setPromptOutput(xml);
+    // Store the output in promptOutput, token estimate in state
+    setPromptOutput(output);
     setTokenEstimate(tokenEstimate);
   };
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       {/* Left panel: Directory selection and configuration */}
-      <div className="flex flex-col w-1/3 h-full border-r border-border p-4">
-        <h1 className="text-base font-semibold mb-4">Codext</h1>
+      <div className="flex flex-col w-1/3 h-full border-r border-border/60 p-5">
+        <h1 className="text-xl font-bold mb-5 text-primary/90">Codext</h1>
 
         <ControlPanel
           ignoreDirsInput={ignoreDirsInput}
           onIgnoreDirsChange={setIgnoreDirsInput}
+          useXmlFormat={useXmlFormat}
+          onUseXmlFormatChange={setUseXmlFormat}
           onRefresh={refreshDirectory}
           onGenerate={handleGenerate}
           hasDirectory={!!rootDirectoryHandle}
@@ -136,30 +171,40 @@ export default function Page() {
           selectedFiles={selectedFiles}
           onToggleDirectory={toggleDirectory}
           onToggleFileSelection={toggleFileSelection}
+          onToggleDirectorySelection={handleToggleDirectorySelection}
         />
       </div>
 
       {/* Right panel: Output */}
-      <div className="flex-1 h-full p-4">
+      <div className="flex-1 h-full p-5">
         {promptOutput && (
           <>
             {/* Display token estimate, but keep it out of the copyable text */}
-            <div className="mb-2 text-sm text-foreground">
-              Estimated tokens: {tokenEstimate}{' '}
-              <span className={`ml-2 ${tokenEstimate >= 15000 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-                ({getTokenRecommendation(tokenEstimate)})
-              </span>
+            <div className="mb-3 flex items-center gap-2">
+              <div className="text-sm font-medium text-foreground/90">
+                Estimated tokens: <span className="font-semibold">{tokenEstimate.toLocaleString()}</span>
+              </div>
+              <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                tokenEstimate >= 15000 
+                ? 'bg-destructive/15 text-destructive' 
+                : tokenEstimate >= 5000
+                ? 'bg-yellow-500/15 text-yellow-600'
+                : 'bg-green-500/15 text-green-600'
+              }`}>
+                {getTokenRecommendation(tokenEstimate)}
+              </div>
             </div>
 
-            <div className="h-full relative bg-muted/50 rounded-lg border border-border shadow-sm">
-              <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-muted/50 to-background/50 opacity-50" />
-              <div className="relative h-full flex flex-col p-6">
-                <div className="flex justify-end mb-2">
+            <div className="h-full relative bg-muted/50 rounded-lg border border-border/60 shadow-md overflow-hidden">
+              <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-muted/30 to-background/30 opacity-60" />
+              <div className="relative h-full flex flex-col">
+                <div className="flex justify-between items-center p-3 border-b border-border/40 bg-muted/70">
+                  <div className="text-sm font-medium text-foreground/70">{useXmlFormat ? "XML Output" : "Output"}</div>
                   <Button
-                    variant="secondary"
+                    variant="outline"
                     size="sm"
                     onClick={() => copyToClipboard(promptOutput)}
-                    className="flex items-center gap-2 hover:bg-muted"
+                    className="flex items-center gap-2 hover:bg-secondary/80 border-border/60"
                     title="Copy to clipboard"
                   >
                     <Copy className="h-4 w-4" />
@@ -167,9 +212,9 @@ export default function Page() {
                   </Button>
                 </div>
 
-                <div className="flex-1 min-h-0">
+                <div className="flex-1 min-h-0 p-4">
                   <ScrollArea className="h-full">
-                    <pre className="text-sm text-foreground/90 font-mono leading-relaxed whitespace-pre-wrap break-all">
+                    <pre className="text-sm text-foreground/90 font-mono leading-relaxed whitespace-pre-wrap break-all px-2">
                       {promptOutput}
                     </pre>
                   </ScrollArea>
