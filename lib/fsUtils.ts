@@ -95,4 +95,74 @@ export function sortEntries(entries: FileNode[]): FileNode[] {
     }
     return a.name.localeCompare(b.name);
   });
+}
+
+/**
+ * Interface for storing collected directory information including its handle.
+ */
+export interface CollectedDirInfo {
+  path: string;
+  handle: FileSystemDirectoryHandle;
+}
+
+/**
+ * Recursively collects all file paths under a given directory.
+ */
+export async function collectAllFiles(
+  dirHandle: FileSystemDirectoryHandle,
+  basePath: string,
+  ignoredDirs: Set<string>
+): Promise<string[]> {
+  const allFiles: string[] = [];
+
+  for await (const entryHandle of dirHandle.values()) {
+    const entryName = entryHandle.name;
+    const entryPath = basePath === '.' ? entryName : `${basePath}/${entryName}`;
+
+    if (entryHandle.kind === 'directory') {
+      if (shouldIgnoreDirectory(entryName, ignoredDirs)) {
+        continue;
+      }
+      const nestedFiles = await collectAllFiles(
+        entryHandle as FileSystemDirectoryHandle,
+        entryPath,
+        ignoredDirs
+      );
+      allFiles.push(...nestedFiles);
+    } else if (entryHandle.kind === 'file') {
+      allFiles.push(entryPath);
+    }
+  }
+  return allFiles;
+}
+
+/**
+ * Recursively collects all subdirectory paths under a given directory.
+ */
+export async function collectAllDirs(
+  dirHandle: FileSystemDirectoryHandle,
+  basePath: string,
+  ignoredDirs: Set<string>
+): Promise<CollectedDirInfo[]> {
+  const allDirs: CollectedDirInfo[] = [];
+
+  for await (const entryHandle of dirHandle.values()) {
+    const entryName = entryHandle.name;
+    const entryPath = basePath === '.' ? entryName : `${basePath}/${entryName}`;
+
+    if (entryHandle.kind === 'directory') {
+      if (shouldIgnoreDirectory(entryName, ignoredDirs)) {
+        continue;
+      }
+      const currentDirHandle = entryHandle as FileSystemDirectoryHandle;
+      allDirs.push({ path: entryPath, handle: currentDirHandle });
+      const nestedDirs = await collectAllDirs(
+        currentDirHandle,
+        entryPath,
+        ignoredDirs
+      );
+      allDirs.push(...nestedDirs);
+    }
+  }
+  return allDirs;
 } 

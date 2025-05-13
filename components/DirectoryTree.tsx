@@ -20,6 +20,7 @@ interface DirectoryTreeProps {
   onToggleDirectory: (dirPath: string) => void;
   onToggleFileSelection: (filePath: string) => void;
   onToggleDirectorySelection: (dirPath: string, selected: boolean) => void;
+  isDisabled?: boolean;
 }
 
 export function DirectoryTree({
@@ -29,29 +30,54 @@ export function DirectoryTree({
   onToggleDirectory,
   onToggleFileSelection,
   onToggleDirectorySelection,
+  isDisabled,
 }: DirectoryTreeProps) {
   function isDirectorySelected(dirPath: string): boolean | 'indeterminate' {
-    const dir = directoryData[dirPath];
-    if (!dir) return false;
+    const dirNode = directoryData[dirPath];
 
-    // Get only direct file children (no subdirectories)
-    const directFilePaths = dir.entries
-      .filter(entry => entry.type === 'file')
-      .map(entry => entry.path);
-    
-    if (directFilePaths.length === 0) return false;
+    if (!dirNode || !dirNode.entries || dirNode.entries.length === 0) {
+      return false;
+    }
 
-    // Count how many direct files in this directory are selected
-    let selectedCount = 0;
-    for (const filePath of directFilePaths) {
-      if (selectedFiles.has(filePath)) {
-        selectedCount++;
+    let allChildrenFullySelected = true;
+    let someChildSelected = false;
+
+    for (const entry of dirNode.entries) {
+      let currentEntryState: boolean | 'indeterminate' = false;
+
+      if (entry.type === 'file') {
+        if (selectedFiles.has(entry.path)) {
+          currentEntryState = true;
+        } else {
+          currentEntryState = false;
+        }
+      } else if (entry.type === 'directory') {
+        if (directoryData[entry.path]) {
+          currentEntryState = isDirectorySelected(entry.path);
+        } else {
+          currentEntryState = false;
+          for (const selectedFile of selectedFiles) {
+            if (selectedFile.startsWith(entry.path + '/')) {
+              currentEntryState = 'indeterminate';
+              break;
+            }
+          }
+        }
+      }
+
+      if (currentEntryState === true) {
+        someChildSelected = true;
+      } else if (currentEntryState === 'indeterminate') {
+        someChildSelected = true;
+        allChildrenFullySelected = false;
+      } else {
+        allChildrenFullySelected = false;
       }
     }
 
-    if (selectedCount === 0) return false;
-    if (selectedCount === directFilePaths.length) return true;
-    return 'indeterminate';
+    if (allChildrenFullySelected) return true;
+    if (someChildSelected) return 'indeterminate';
+    return false;
   }
 
   function renderDirectory(dirPath: string, visitedPaths = new Set<string>()): JSX.Element | null {
@@ -81,7 +107,7 @@ export function DirectoryTree({
                   <div className="flex items-center w-6 justify-center">
                     <span 
                       className="cursor-pointer text-primary/70"
-                      onClick={() => onToggleDirectory(node.path)}
+                      onClick={() => !isDisabled && onToggleDirectory(node.path)}
                     >
                       {isOpen ? (
                         <ChevronDown className="h-4 w-4 transition-transform duration-200" />
@@ -100,6 +126,7 @@ export function DirectoryTree({
                       }}
                       checked={directoryCheckState === true ? true : false}
                       onCheckedChange={(checked) => {
+                        if (isDisabled) return;
                         onToggleDirectorySelection(node.path, checked === true);
                         // Auto-expand folder when checked
                         if (checked === true && !isOpen) {
@@ -111,7 +138,7 @@ export function DirectoryTree({
                   </div>
                   <div 
                    className="flex items-center cursor-pointer flex-1"
-                   onClick={() => onToggleDirectory(node.path)}
+                   onClick={() => !isDisabled && onToggleDirectory(node.path)}
                  >
                    {isOpen ? (
                      <FolderOpen className="h-5 w-5 text-primary mr-2" />
@@ -135,7 +162,8 @@ export function DirectoryTree({
               <div className="mr-2">
                 <Checkbox
                   checked={selectedFiles.has(node.path)}
-                  onCheckedChange={() => onToggleFileSelection(node.path)}
+                  onCheckedChange={() => !isDisabled && onToggleFileSelection(node.path)}
+                  disabled={isDisabled}
                 />
               </div>
               <div className="flex items-center flex-1">
@@ -150,7 +178,7 @@ export function DirectoryTree({
   }
 
   return (
-    <ScrollArea className="h-[calc(100vh-12rem)] rounded-md border border-border/40 bg-muted/30">
+    <ScrollArea className={`h-[calc(100vh-12rem)] rounded-md border border-border/40 bg-muted/30 ${isDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
       <div className="px-2 py-1">
         {renderDirectory('.')}
       </div>

@@ -11,6 +11,7 @@ interface ControlPanelProps {
   onGenerate: () => void;
   hasDirectory: boolean;
   onPickDirectory: () => void;
+  isProcessing?: boolean;
 }
 
 export function ControlPanel({
@@ -22,6 +23,7 @@ export function ControlPanel({
   onGenerate,
   hasDirectory,
   onPickDirectory,
+  isProcessing,
 }: ControlPanelProps) {
   return (
     <div className="flex flex-col space-y-4 mb-5 rounded-md">
@@ -31,6 +33,7 @@ export function ControlPanel({
           size="sm" 
           onClick={onPickDirectory}
           className="flex items-center gap-2 font-medium shadow-sm"
+          disabled={isProcessing}
         >
           <FolderOpen className="h-4 w-4" />
           Select Workspace Folder
@@ -49,6 +52,7 @@ export function ControlPanel({
               onChange={(e) => onIgnoreDirsChange(e.target.value)}
               className="border border-border bg-background rounded-md px-3 py-1.5 text-sm w-full focus:border-primary/50 focus:ring-1 focus:ring-primary/50 focus:outline-none transition-colors"
               placeholder="e.g. node_modules, .*, _*, .git, dist, build"
+              disabled={isProcessing}
             />
           </div>
           <div className="flex items-center space-x-2">
@@ -56,12 +60,13 @@ export function ControlPanel({
               id="xml-format-checkbox"
               checked={useXmlFormat}
               onCheckedChange={onUseXmlFormatChange}
+              disabled={isProcessing}
             />
             <label 
               htmlFor="xml-format-checkbox" 
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground/90 cursor-pointer"
+              className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground/90 ${isProcessing ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
             >
-              Use XML format
+              Use XML output format
             </label>
           </div>
           <div className="flex space-x-3 justify-end mt-1">
@@ -70,6 +75,7 @@ export function ControlPanel({
               size="sm"
               onClick={onRefresh}
               className="flex items-center gap-2 self-end border-border/70 hover:bg-secondary/80 transition-colors"
+              disabled={isProcessing}
             >
               <RefreshCw className="h-4 w-4 text-primary/80" />
               Refresh
@@ -79,6 +85,7 @@ export function ControlPanel({
               size="sm"
               onClick={onGenerate}
               className="flex items-center gap-2 self-end shadow-sm"
+              disabled={isProcessing}
             >
               <Wand2 className="h-4 w-4" />
               Generate

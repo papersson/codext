@@ -23,7 +23,7 @@ export default function Page() {
   const [tokenEstimate, setTokenEstimate] = useState<number>(0);
   
   // Toggle for XML format
-  const [useXmlFormat, setUseXmlFormat] = useState<boolean>(true);
+  const [useXmlFormat, setUseXmlFormat] = useState<boolean>(false);
 
   // Get token recommendation based on count
   const getTokenRecommendation = (tokenCount: number): string => {
@@ -43,36 +43,9 @@ export default function Page() {
     toggleDirectory,
     toggleFileSelection,
     refreshDirectory,
+    toggleDirectorySelection,
+    isBatchUpdating,
   } = useDirectoryState();
-
-  // Function to handle selecting/deselecting all files in a directory
-  const handleToggleDirectorySelection = (dirPath: string, selected: boolean) => {
-    // Auto-expand folder when checked
-    if (selected && !expandedDirectories.has(dirPath)) {
-      toggleDirectory(dirPath);
-    }
-    
-    // Get only the direct file children (not subdirectories)
-    const getDirectFileChildren = (path: string): string[] => {
-      const dirData = directoryData[path];
-      if (!dirData) return [];
-
-      return dirData.entries
-        .filter(entry => entry.type === 'file')
-        .map(entry => entry.path);
-    };
-
-    const directFilePaths = getDirectFileChildren(dirPath);
-    
-    // Toggle selection for direct file children only
-    for (const filePath of directFilePaths) {
-      if (selected && !selectedFiles.has(filePath)) {
-        toggleFileSelection(filePath);
-      } else if (!selected && selectedFiles.has(filePath)) {
-        toggleFileSelection(filePath);
-      }
-    }
-  };
 
   // Utility to copy text to clipboard (fallback for older browsers)
   const copyToClipboard = async (text: string) => {
@@ -163,6 +136,7 @@ export default function Page() {
           onGenerate={handleGenerate}
           hasDirectory={!!rootDirectoryHandle}
           onPickDirectory={pickDirectory}
+          isProcessing={isBatchUpdating}
         />
 
         <DirectoryTree
@@ -171,7 +145,16 @@ export default function Page() {
           selectedFiles={selectedFiles}
           onToggleDirectory={toggleDirectory}
           onToggleFileSelection={toggleFileSelection}
-          onToggleDirectorySelection={handleToggleDirectorySelection}
+          onToggleDirectorySelection={(dirPath, selected) => {
+            const ignoredDirs = new Set(
+              ignoreDirsInput
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
+            );
+            toggleDirectorySelection(dirPath, selected, ignoredDirs);
+          }}
+          isDisabled={isBatchUpdating}
         />
       </div>
 
